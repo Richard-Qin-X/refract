@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 project(
     Refract
     VERSION 0.1.0
-    DESCRIPTION "A fast, secure, and efficient cryptographic tool."
+    DESCRIPTION "A fast, simple, and efficient cryptographic utility library."
     LANGUAGES CXX C ASM
 )
 
@@ -22,6 +22,7 @@ foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_BINARY_DIR}/lib)
 endforeach()
 
+include(GNUInstallDirs)
 include(etc/build_type.cmake)
 include(etc/cflags.cmake)
 include(etc/scanners.cmake)
@@ -37,17 +38,17 @@ endif()
 add_subdirectory(tests)
 
 install(TARGETS refract_static refract_shared
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
-        DESTINATION include
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 if(REFRACT_BUILD_CLI)
     install(TARGETS refract_cli
-            RUNTIME DESTINATION bin
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 endif()
 

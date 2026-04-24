@@ -1,8 +1,8 @@
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_PROC)
 
 set(REFRACT_CORE_SOURCES
-    "big_int.cc"
-    "sha256.cc"
+    # "big_int.cc"
+    # "sha256.cc"
 )
 
 if(SYSTEM_PROC MATCHES "^(x86_64|amd64)$")
