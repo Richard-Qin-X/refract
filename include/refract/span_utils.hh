@@ -19,6 +19,7 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <span>
 #include <stdexcept>
@@ -116,8 +117,7 @@ const_bytes_span as_bytes( const T& obj )
   static_assert( std::is_standard_layout_v<T> && std::is_trivially_default_constructible_v<T>
                    && std::is_trivially_copyable_v<T>,
                  "Object must be standard layout and trivial to be viewed as bytes." );
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  return std::span { reinterpret_cast<const uint8_t*>( &obj ), sizeof( T ) };
+  return std::bit_cast<const_bytes_span>( std::as_bytes( std::span { &obj, 1 } ) );
 }
 
 /**
@@ -129,8 +129,25 @@ bytes_span as_writable_bytes( T& obj )
   static_assert( std::is_standard_layout_v<T> && std::is_trivially_default_constructible_v<T>
                    && std::is_trivially_copyable_v<T> && !std::is_const_v<T>,
                  "Object must be non-const, standard layout and trivial to be viewed as bytes." );
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  return std::span { reinterpret_cast<uint8_t*>( &obj ), sizeof( T ) };
+  return std::bit_cast<bytes_span>( std::as_writable_bytes( std::span { &obj, 1 } ) );
+}
+
+/**
+ * @brief View any contiguous container as a constant byte span.
+ */
+template<typename Container>
+const_bytes_span as_bytes_view( const Container& container )
+{
+  return std::bit_cast<const_bytes_span>( std::as_bytes( std::span( container ) ) );
+}
+
+/**
+ * @brief View any contiguous container as a writable byte span.
+ */
+template<typename Container>
+bytes_span as_writable_bytes_view( Container& container )
+{
+  return std::bit_cast<bytes_span>( std::as_writable_bytes( std::span( container ) ) );
 }
 
 /**

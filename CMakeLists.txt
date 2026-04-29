@@ -1,4 +1,10 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.30)
+
+if(DEFINED ENV{CONDA_PREFIX})
+    message(STATUS "Detected Conda environment: $ENV{CONDA_PREFIX}")
+    list(APPEND CMAKE_SYSTEM_PREFIX_PATH "/usr" "/usr/local")
+    list(APPEND CMAKE_IGNORE_PATH "$ENV{CONDA_PREFIX}/lib" "$ENV{CONDA_PREFIX}/include")
+endif()
 
 project(
     Refract

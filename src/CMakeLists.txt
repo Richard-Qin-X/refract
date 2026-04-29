@@ -1,16 +1,19 @@
 string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" SYSTEM_PROC)
 
 set(REFRACT_CORE_SOURCES
-    # "big_int.cc"
-    # "sha256.cc"
+    "sha256.cc"
+    "arch/generic/sha256_generic.cc"
 )
 
 if(SYSTEM_PROC MATCHES "^(x86_64|amd64)$")
     message(STATUS "[Refract] Enabling x86_64 optimizations")
     list(APPEND REFRACT_CORE_SOURCES 
-        "arch/x86_64/sha256_avx2.S"
-        "arch/x86_64/aes_ni.c"
+        # "arch/x86_64/sha256_avx2.S"
+        # "arch/x86_64/aes_ni.c"
+        "arch/x86_64/sha256_ni.cc"
     )
+    set_source_files_properties("arch/x86_64/sha256_ni.cc" PROPERTIES COMPILE_FLAGS "-msha -msse4.1")
+    set_source_files_properties("arch/x86_64/aes_ni.c" PROPERTIES COMPILE_FLAGS "-maes -msse4.1")
 elseif(SYSTEM_PROC MATCHES "^(riscv64)$")
     message(STATUS "[Refract] Enabling RISC-V optimizations")
     list(APPEND REFRACT_CORE_SOURCES 
