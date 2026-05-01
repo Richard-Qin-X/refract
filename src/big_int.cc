@@ -286,6 +286,53 @@ BigInt::~BigInt()
   internal::mem_wipe( limbs_ );
 }
 
+BigInt BigInt::random_bits( size_t bits, RandomNumberGenerator& rng )
+{
+  if ( bits == 0 ) {
+    return BigInt::zero();
+  }
+
+  const size_t bytes_needed = ( bits + 7 ) / 8;
+  std::vector<uint8_t> buffer( bytes_needed );
+
+  rng.next_bytes( buffer );
+
+  const size_t extra_bits = bits % 8;
+  if ( extra_bits != 0 ) {
+    const uint8_t mask = ( 1 << extra_bits ) - 1;
+    buffer[0] &= mask;
+  }
+
+  BigInt result( buffer, Endian::Big, false );
+  internal::mem_wipe( buffer );
+
+  return result;
+}
+
+BigInt BigInt::random_integer( const BigInt& min, const BigInt& max, RandomNumberGenerator& rng )
+{
+  if ( min >= max ) {
+    throw std::invalid_argument( "refract::BigInt::random_integer: min must be strictly less than max" );
+  }
+
+  BigInt range = max;
+  range -= min;
+
+  const size_t bits = range.bit_length();
+
+  BigInt random_val;
+
+  while ( true ) {
+    random_val = random_bits( bits, rng );
+    if ( random_val.cmp_magnitude( range ) < 0 ) {
+      break;
+    }
+  }
+
+  random_val += min;
+  return random_val;
+}
+
 BigInt::Sign BigInt::sign() const
 {
   return sign_;
