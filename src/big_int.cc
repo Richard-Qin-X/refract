@@ -18,9 +18,22 @@
 
 #include "refract/big_int.hh"
 #include "internal/mem_wipe.hh"
+#include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+
+#if defined( __linux__ )
+#include <fcntl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#elif defined( _WIN32 )
+#include <bcrypt.h>
+#include <windows.h>
+#elif defined( __APPLE__ ) || defined( __FreeBSD__ ) || defined( __OpenBSD__ )
+#include <stdlib.h> // arc4random_buf
+#endif
 
 namespace refract {
 
@@ -60,6 +73,103 @@ std::pair<int, std::string_view> resolve_base( std::string_view str, int base )
 }
 
 } // namespace
+
+void OSRandom::next_bytes( std::span<uint8_t> buffer )
+{
+  if ( buffer.empty() ) {
+    return;
+  }
+
+#if defined( __linux__ )
+  size_t offset = 0;
+  const size_t len = buffer.size();
+
+  while ( offset < len ) {
+#if defined( SYS_getrandom )
+    ssize_t ret = syscall( SYS_getrandom, buffer.subspan( offset ).data(), len - offset, 0 );
+#else
+    ssize_t ret = -1;
+    errno = ENOSYS;
+#endif
+
+    if ( ret < 0 ) {
+      if ( errno == EINTR ) {
+        continue;
+      }
+
+      const int fd = open( "/dev/urandom", O_RDONLY | O_CLOEXEC );
+      if ( fd == -1 ) {
+        throw std::runtime_error( "OSRandom: Failed to open /dev/urandom fallback" );
+      }
+
+      while ( offset < len ) {
+        ret = read( fd, buffer.subspan( offset ).data(), len - offset );
+        if ( ret <= 0 ) {
+          if ( ret == -1 && errno == EINTR ) {
+            continue;
+          }
+          close( fd );
+          throw std::runtime_error( "OSRandom: Failed to read from /dev/urandom" );
+        }
+        offset += static_cast<size_t>( ret );
+      }
+      close( fd );
+      return;
+    }
+    offset += static_cast<size_t>( ret );
+  }
+
+#elif defined( _WIN32 )
+  size_t offset = 0;
+  const size_t len = buffer.size();
+
+  while ( offset < len ) {
+    const size_t chunk_size = std::min( len - offset, static_cast<size_t>( 0xFFFFFFFFUL ) );
+
+    if ( !BCRYPT_SUCCESS( BCryptGenRandom(
+           NULL, buffer.data() + offset, static_cast<ULONG>( chunk_size ), BCRYPT_USE_SYSTEM_PREFERRED_RNG ) ) ) {
+      throw std::runtime_error( "OSRandom: BCryptGenRandom failed" );
+    }
+    offset += chunk_size;
+  }
+
+#elif defined( __APPLE__ ) || defined( __FreeBSD__ ) || defined( __OpenBSD__ )
+  arc4random_buf( buffer.data(), buffer.size() );
+
+#else
+  throw std::runtime_error( "OSRandom: Unsupported OS for cryptographic random generation" );
+#endif
+}
+
+uint8_t RandomNumberGenerator::next_u8()
+{
+  std::array<uint8_t, 1> b {};
+  next_bytes( b );
+  return b[0];
+}
+
+uint32_t RandomNumberGenerator::next_u32()
+{
+  std::array<uint8_t, 4> b {};
+  next_bytes( b );
+  return static_cast<uint32_t>( b[0] ) | ( static_cast<uint32_t>( b[1] ) << 8 )
+         | ( static_cast<uint32_t>( b[2] ) << 16 ) | ( static_cast<uint32_t>( b[3] ) << 24 );
+}
+
+uint64_t RandomNumberGenerator::next_u64()
+{
+  std::array<uint8_t, 8> b {};
+  next_bytes( b );
+  return static_cast<uint64_t>( b[0] ) | ( static_cast<uint64_t>( b[1] ) << 8 )
+         | ( static_cast<uint64_t>( b[2] ) << 16 ) | ( static_cast<uint64_t>( b[3] ) << 24 )
+         | ( static_cast<uint64_t>( b[4] ) << 32 ) | ( static_cast<uint64_t>( b[5] ) << 40 )
+         | ( static_cast<uint64_t>( b[6] ) << 48 ) | ( static_cast<uint64_t>( b[7] ) << 56 );
+}
+
+bool RandomNumberGenerator::next_bool()
+{
+  return ( next_u8() & 1 ) != 0;
+}
 
 BigInt::BigInt( int64_t val )
 {
@@ -391,7 +501,6 @@ void BigInt::zeroify()
   limbs_.clear();
   sign_ = Sign::Zero;
 }
-
 
 int BigInt::cmp_magnitude( const BigInt& other ) const
 {

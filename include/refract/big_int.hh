@@ -28,7 +28,34 @@
 
 namespace refract {
 
-class RandomNumberGenerator;
+class RandomNumberGenerator
+{
+public:
+  virtual ~RandomNumberGenerator() = default;
+  RandomNumberGenerator( const RandomNumberGenerator& ) = delete;
+  RandomNumberGenerator& operator=( const RandomNumberGenerator& ) = delete;
+  RandomNumberGenerator( RandomNumberGenerator&& ) noexcept = default;
+  RandomNumberGenerator& operator=( RandomNumberGenerator&& ) noexcept = default;
+
+  virtual void next_bytes( std::span<uint8_t> buffer ) = 0;
+  uint8_t next_u8();
+  uint32_t next_u32();
+  uint64_t next_u64();
+  bool next_bool();
+};
+
+class OSRandom : public RandomNumberGenerator
+{
+public:
+  OSRandom() = delete;
+  ~OSRandom() override = default;
+  OSRandom( const OSRandom& ) = delete;
+  OSRandom& operator=( const OSRandom& ) = delete;
+  OSRandom( OSRandom&& ) noexcept = default;
+  OSRandom& operator=( OSRandom&& ) noexcept = default;
+
+  void next_bytes( std::span<uint8_t> buffer ) override;
+};
 
 // Endianness definition for serialization/deserialization
 enum class Endian : uint8_t
