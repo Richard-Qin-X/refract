@@ -31,11 +31,21 @@ namespace refract {
 class RandomNumberGenerator;
 
 // Endianness definition for serialization/deserialization
-enum class Endian : uint8_t { Big, Little };
+enum class Endian : uint8_t
+{
+  Big,
+  Little
+};
 
-class BigInt {
+class BigInt
+{
 public:
-  enum class Sign : int8_t { Negative = -1, Zero = 0, Positive = 1 };
+  enum class Sign : int8_t
+  {
+    Negative = -1,
+    Zero = 0,
+    Positive = 1
+  };
 
   // Constructors & Factory Methods
   BigInt() = default;
@@ -43,7 +53,7 @@ public:
   explicit BigInt( uint64_t val );
   explicit BigInt( Sign s, std::vector<uint64_t> limbs );
   explicit BigInt( std::string_view str, int base = 10 );
-  
+
   // Endian-aware constructor from byte stream
   explicit BigInt( std::span<const uint8_t> bytes, Endian e = Endian::Big, bool is_negative = false );
 
@@ -59,23 +69,23 @@ public:
   static BigInt random_integer( const BigInt& min, const BigInt& max, RandomNumberGenerator& rng );
 
   // Properties & Sign Management
-  Sign sign() const { return sign_; }
-  bool is_negative() const { return sign_ == Sign::Negative; }
-  bool is_positive() const { return sign_ == Sign::Positive; }
-  bool is_zero() const { return sign_ == Sign::Zero; }
+  Sign sign() const;
+  bool is_negative() const;
+  bool is_positive() const;
+  bool is_zero() const;
   bool is_one() const;
   bool is_odd() const;
   bool is_even() const;
 
-  void set_sign( Sign s ) { sign_ = ( limbs_.empty() && s != Sign::Zero ) ? Sign::Zero : s; }
+  void set_sign( Sign s );
   BigInt abs() const;
   BigInt negate() const;
-  BigInt operator-() const { return negate(); }
+  BigInt operator-() const;
 
   size_t bit_length() const;
   size_t byte_length() const;
-  size_t limb_count() const { return limbs_.size(); }
-  uint64_t get_limb( size_t index ) const { return index < limbs_.size() ? limbs_[index] : 0; }
+  size_t limb_count() const;
+  uint64_t get_limb( size_t index ) const;
 
   // Basic Arithmetic Operations
   BigInt& operator+=( const BigInt& other );
@@ -111,7 +121,7 @@ public:
 
   // Modular Arithmetic
   static BigInt nnmod( const BigInt& a, const BigInt& mod ); // Non-negative modulo
-  
+
   static BigInt mod_add( const BigInt& a, const BigInt& b, const BigInt& mod );
   static BigInt mod_sub( const BigInt& a, const BigInt& b, const BigInt& mod );
   static BigInt mod_mul( const BigInt& a, const BigInt& b, const BigInt& mod );
@@ -159,7 +169,7 @@ public:
 
   // Serialization & Utilities
   std::string to_string( int base = 10 ) const;
-  
+
   // Fixed-length export with zero-padding (crucial for ECDSA, etc.)
   std::vector<uint8_t> to_bytes( Endian e = Endian::Big, size_t len = 0 ) const;
 
@@ -171,22 +181,46 @@ public:
 
 private:
   Sign sign_ = Sign::Zero;
-  std::vector<uint64_t> limbs_{};
+  std::vector<uint64_t> limbs_ {};
 
   void trim();
+  void pad_to( size_t target_limbs );
+  void zeroify();
 
+  // Magnitude-only operations
   int cmp_magnitude( const BigInt& other ) const;
-
   void add_magnitude( const BigInt& other );
-
   void sub_magnitude( const BigInt& other );
+  void mul_magnitudes( const BigInt& other );
+  void div_qr_magnitudes( const BigInt& divisor, BigInt* q, BigInt* r );
+  void sqr_magnitude();
 
+  void mul_karatsuba( const BigInt& a, const BigInt& b );
+  void sqr_karatsuba();
+  void mul_toom_cook_3( const BigInt& a, const BigInt& b );
+  void sqr_toom_cook_3();
+  void mul_ntt( const BigInt& a, const BigInt& b );
+  void sqr_ntt();
+  void ntt_forward( std::vector<uint64_t>& poly, uint64_t prime, uint64_t root );
+  void ntt_inverse( std::vector<uint64_t>& poly, uint64_t prime, uint64_t root );
+  void montgomery_reduce( const BigInt& mod, uint64_t mod_inv_word );
+
+  // Optimization: shifting
+  void lshift_limbs( size_t words );
+  void rshift_limbs( size_t words );
+  void lshift_bits( size_t bits );
+  void rshift_bits( size_t bits );
+
+  // Optimization: Word-level arithmetic
+  void add_word_magnitude( uint64_t word );
+  void sub_word_magnitude( uint64_t word );
   void mul_low_by_word( uint64_t word );
-
   void mul_high_by_word( uint64_t word, uint64_t* carry );
-
   void div_qr_word( uint64_t divisor, uint64_t* remainder );
 
+  // Serialization & Bit Twiddling
+  void decode_bytes( std::span<const uint8_t> bytes, Endian e );
+  uint64_t get_bits( size_t bit_index, size_t bit_length ) const;
 };
 
 } // namespace refract
