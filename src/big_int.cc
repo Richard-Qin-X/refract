@@ -345,6 +345,11 @@ BigInt& BigInt::operator-=( const BigInt& other )
   return *this;
 }
 
+void BigInt::reserve( size_t bits )
+{
+  limbs_.reserve( ( bits + 63 ) / 64 );
+}
+
 const BigInt& BigInt::zero()
 {
   static const BigInt zero_;
@@ -372,6 +377,21 @@ void BigInt::trim()
     sign_ = Sign::Zero;
   }
 }
+
+void BigInt::pad_to( size_t target_limbs )
+{
+  if ( target_limbs > limbs_.size() ) {
+    limbs_.resize( target_limbs, 0 );
+  }
+}
+
+void BigInt::zeroify()
+{
+  internal::mem_wipe( limbs_ );
+  limbs_.clear();
+  sign_ = Sign::Zero;
+}
+
 
 int BigInt::cmp_magnitude( const BigInt& other ) const
 {
